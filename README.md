@@ -5,4 +5,5 @@ main -> Getting started with spring-security (Hard coded values in application.p
 section-2 -> Added SecurityFilterChain with formLogin and httpBasic and storing username and password in application.properties file  
 section-3 -> Added UserDetailsService with InMemoryUserDetailsManager and PasswordEncoder  
 section-4 -> Added database connection  
-section-5 -> No new code(understanding of encoding, encryption and hashing)
+section-5 -> No new code(understanding of encoding, encryption and hashing)  
+section-6 -> Profile based authentication added
