@@ -13,7 +13,7 @@ import org.springframework.security.web.authentication.password.HaveIBeenPwnedRe
 import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
-@Profile("!profile")
+@Profile("!prod")
 public class ProjectSecurityConfig {
 
     @Bean
