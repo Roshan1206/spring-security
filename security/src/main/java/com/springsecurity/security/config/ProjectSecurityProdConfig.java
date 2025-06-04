@@ -1,5 +1,7 @@
 package com.springsecurity.security.config;
 
+import com.springsecurity.security.exception.CustomAccessDeniedHandler;
+import com.springsecurity.security.exception.CustomBasicAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -18,12 +20,19 @@ public class ProjectSecurityProdConfig {
 
     @Bean
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(
-                        req -> req.requestMatchers("/myAccount", "/myBalance", "/myLoans", "/myCards").authenticated()
-                                .requestMatchers("/notices", "/contact", "/error", "/register").permitAll());
+        http
+                .sessionManagement(smc -> smc
+                        .invalidSessionUrl("/invalidSession")
+                        .maximumSessions(1)
+                        .maxSessionsPreventsLogin(true))
+                .requiresChannel(rcc -> rcc.anyRequest().requiresSecure()) //Accepts only HTTPS traffic
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(req -> req
+                        .requestMatchers("/myAccount", "/myBalance", "/myLoans", "/myCards").authenticated()
+                        .requestMatchers("/notices", "/contact", "/error", "/register", "/invalidSession").permitAll());
         http.formLogin(withDefaults());
-        http.httpBasic(withDefaults());
+        http.httpBasic(hbc -> hbc.authenticationEntryPoint(new CustomBasicAuthenticationEntryPoint()));
+        http.exceptionHandling(ehc -> ehc.accessDeniedHandler(new CustomAccessDeniedHandler()));
         return http.build();
     }
 
