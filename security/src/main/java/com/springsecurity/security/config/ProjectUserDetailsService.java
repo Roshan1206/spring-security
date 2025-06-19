@@ -1,6 +1,7 @@
 package com.springsecurity.security.config;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,7 +26,7 @@ public class ProjectUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Customer customer = customerRepository.findByEmail(username).orElseThrow(
                 () -> new UsernameNotFoundException("username not found for: " + username));
-        List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority(customer.getRole()));
+        List<GrantedAuthority> authorities = customer.getAuthorities().stream().map(authority -> new SimpleGrantedAuthority(authority.getName())).collect(Collectors.toList());
         return new User(customer.getEmail(), customer.getPwd(), authorities);
     }
 
