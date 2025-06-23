@@ -27,25 +27,27 @@ public class RequestValidationBeforeFilter implements Filter {
         HttpServletResponse res = (HttpServletResponse) response;
 
         String header = req.getHeader(HttpHeaders.AUTHORIZATION);
-        header = header.trim();
-        if(StringUtils.startsWithIgnoreCase(header, "Basic")){
-            byte[] base64Token = header.substring(6).getBytes(StandardCharsets.UTF_8);
-            byte[] decoded;
+        if(null!=header){
+            header = header.trim();
+            if(StringUtils.startsWithIgnoreCase(header, "Basic")){
+                byte[] base64Token = header.substring(6).getBytes(StandardCharsets.UTF_8);
+                byte[] decoded;
 
-            try{
-                decoded = Base64.getDecoder().decode(base64Token);
-                String token = new String(decoded, StandardCharsets.UTF_8); //token = username:password
-                int delimeter = token.indexOf(":");
-                if(delimeter == -1){
-                    throw new BadCredentialsException("Invalid basic authentication token");
+                try{
+                    decoded = Base64.getDecoder().decode(base64Token);
+                    String token = new String(decoded, StandardCharsets.UTF_8); //token = username:password
+                    int delimeter = token.indexOf(":");
+                    if(delimeter == -1){
+                        throw new BadCredentialsException("Invalid basic authentication token");
+                    }
+                    String email = token.substring(0, delimeter);
+                    if(email.toLowerCase().contains("test")){
+                        res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        return;
+                    }
+                }catch (IllegalArgumentException exception){
+                    throw new BadCredentialsException("Failed to decode basic authentication token");
                 }
-                String email = token.substring(0, delimeter);
-                if(email.toLowerCase().contains("test")){
-                    res.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                    return;
-                }
-            }catch (IllegalArgumentException exception){
-                throw new BadCredentialsException("Failed to decode basic authentication token");
             }
         }
         chain.doFilter(req, res);

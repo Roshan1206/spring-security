@@ -2,17 +2,17 @@ package com.springsecurity.security.config;
 
 import com.springsecurity.security.exception.CustomAccessDeniedHandler;
 import com.springsecurity.security.exception.CustomBasicAuthenticationEntryPoint;
-import com.springsecurity.security.filter.AuthoritiesLoggingAfterFilter;
-import com.springsecurity.security.filter.AuthoritiesLoggingAtFilter;
-import com.springsecurity.security.filter.CsrfCookieFilter;
-import com.springsecurity.security.filter.RequestValidationBeforeFilter;
+import com.springsecurity.security.filter.*;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.password.CompromisedPasswordChecker;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -23,6 +23,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -37,8 +38,7 @@ public class ProjectSecurityConfig {
 
 
         http
-                .securityContext(contextConfig -> contextConfig.requireExplicitSave(false))
-                .sessionManagement(smc -> smc.sessionCreationPolicy(SessionCreationPolicy.ALWAYS))
+                .sessionManagement(smc -> smc.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(corsConfig -> corsConfig.configurationSource(new CorsConfigurationSource() {
                     @Override
                     public CorsConfiguration getCorsConfiguration(HttpServletRequest request) {
@@ -46,6 +46,7 @@ public class ProjectSecurityConfig {
                         configuration.setAllowedOrigins(Collections.singletonList("http://localhost:4200"));
                         configuration.setAllowedMethods(Collections.singletonList("*"));
                         configuration.setAllowedHeaders(Collections.singletonList("*"));
+                        configuration.setExposedHeaders(Arrays.asList("Authorization")); //Expose header value in response
                         configuration.setAllowCredentials(true);
                         configuration.setMaxAge(3600L);
                         return configuration;
@@ -53,12 +54,14 @@ public class ProjectSecurityConfig {
                 }))
                 .csrf(csrfConfig -> csrfConfig
                         .csrfTokenRequestHandler(csrfTokenRequestAttributeHandler)
-                        .ignoringRequestMatchers("/contact", "/register")
+                        .ignoringRequestMatchers("/contact", "/register", "/apiLogin")
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
                 .addFilterBefore(new RequestValidationBeforeFilter(), BasicAuthenticationFilter.class)
                 .addFilterAfter(new AuthoritiesLoggingAfterFilter(), BasicAuthenticationFilter.class)
                 .addFilterAt(new AuthoritiesLoggingAtFilter(), BasicAuthenticationFilter.class)
+                .addFilterAfter(new JWTTokenGeneraterFilter(), BasicAuthenticationFilter.class)
+                .addFilterBefore(new JWTTokenValidatorFilter(), BasicAuthenticationFilter.class)
                 .requiresChannel(rcc -> rcc.anyRequest().requiresInsecure()) //Accepts only HTTP traffic.
                 .authorizeHttpRequests(req -> req
                         .requestMatchers("/myAccount").hasRole("USER")
@@ -66,7 +69,7 @@ public class ProjectSecurityConfig {
                         .requestMatchers("/myLoans").hasRole("USER")
                         .requestMatchers("/myCards").hasRole("USER")
                         .requestMatchers("/user").authenticated()
-                        .requestMatchers("/notices", "/contact", "/error", "/register", "/invalidSession").permitAll());
+                        .requestMatchers("/notices", "/contact", "/error", "/register", "/invalidSession", "/apiLogin").permitAll());
         http.formLogin(withDefaults());
         http.httpBasic(hbc -> hbc.authenticationEntryPoint(new CustomBasicAuthenticationEntryPoint()));
         http.exceptionHandling(ehc -> ehc.accessDeniedHandler(new CustomAccessDeniedHandler()));
@@ -84,5 +87,13 @@ public class ProjectSecurityConfig {
     @Bean
     public CompromisedPasswordChecker compromisedPasswordChecker() {
         return new HaveIBeenPwnedRestApiPasswordChecker();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(UserDetailsService userDetailsService, PasswordEncoder passwordEncoder){
+        ProjectUsernamePwdAuthenticationProvider authenticationProvider = new ProjectUsernamePwdAuthenticationProvider(userDetailsService, passwordEncoder);
+        ProviderManager providerManager = new ProviderManager(authenticationProvider);
+        providerManager.setEraseCredentialsAfterAuthentication(false);
+        return providerManager;
     }
 }
